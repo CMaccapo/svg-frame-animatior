@@ -22,8 +22,8 @@
 Clone the repository:
 
 ```bash
-git clone https://github.com/CMaccapo/svg-frame-animation.git
-cd svg-frame-animation
+git clone https://github.com/CMaccapo/svg-frame-animatior.git
+cd svg-frame-animatior
 ```
 
 Install dependencies:
