@@ -13,6 +13,7 @@ from config import WINDOW_WIDTH, WINDOW_HEIGHT
 class SvgAnimator(QWidget):
     def __init__(self, svg_folder, fps=24):
         super().__init__()
+        self.setWindowTitle("SVG Player")
         self.fps = fps
         self.svg_folder = svg_folder
         self.current_index = 0
@@ -25,18 +26,10 @@ class SvgAnimator(QWidget):
         self.setLayout(self.main_layout)
 
         # SVG display widget
-        self.svg_widget = QSvgWidget(None, self)
+        self.svg_widget = QSvgWidget(self)
         self.svg_widget.setMinimumSize(WINDOW_WIDTH, WINDOW_HEIGHT)
         self.main_layout.addWidget(self.svg_widget)
 
-        # Status label (overlay in bottom-right corner)
-        self.status_label = QLabel(self)
-        self.status_label.setStyleSheet(
-            "background-color: rgba(0, 0, 0, 120); color: white; padding: 4px; border-radius: 3px;"
-        )
-        self.status_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        self.status_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.status_label.raise_()  # Make sure it’s above the SVG widget
 
         # Control panel layout
         self.controls_layout = QHBoxLayout()
@@ -124,22 +117,21 @@ class SvgAnimator(QWidget):
         self.fps_label.setText(f"FPS: {self.fps}")
         self.timer.setInterval(int(1000 / self.fps))
 
-    # --- Update SVG and status label ---
+    # --- Update SVG  ---
     def _update_svg(self):
         if not self.svg_files:
-            self.svg_widget.load(None)
-            self.status_label.setText("")
+            # Instead of loading None, just clear the widget safely
+            self.svg_widget.load(b'')  # load empty content instead of None
+            self.setWindowTitle("SVG Animator - No frames")
             return
+
         current_file = os.path.basename(self.svg_files[self.current_index])
         self.svg_widget.load(self.svg_files[self.current_index])
-        full_text = f"({self.current_index + 1}/{len(self.svg_files)}) {current_file}"
-        
-        # Elide text if too long
-        max_width = self.svg_widget.width() - 20  # padding from edges
-        metrics = QFontMetrics(self.status_label.font())
-        elided_text = metrics.elidedText(full_text, Qt.ElideLeft, max_width)
-        self.status_label.setText(elided_text)
-        self.status_label.adjustSize()
+
+
+        # Update window title
+        self.setWindowTitle(f"SVG Animator - ({self.current_index + 1}/{len(self.svg_files)}) {current_file}")
+
 
     # --- Window close handling ---
     def closeEvent(self, event):
@@ -147,20 +139,12 @@ class SvgAnimator(QWidget):
         self.observer.join()
         event.accept()
 
-    # --- Resize SVG and overlay status ---
+    # --- Resize SVG ---
     def resizeEvent(self, event):
         # Resize SVG
         self.svg_widget.resize(self.width(), self.height() - 50)
 
         # Recalculate elided text based on new width
         self._update_svg()
-
-        # Position status label in bottom-right corner
-        label_width = self.status_label.width()
-        label_height = self.status_label.height()
-        self.status_label.move(
-            max(0, self.svg_widget.width() - label_width - 10),
-            max(0, self.svg_widget.height() - label_height - 10)
-        )
 
         super().resizeEvent(event)
