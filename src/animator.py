@@ -7,8 +7,8 @@ from PyQt5.QtSvg import QSvgWidget
 from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtGui import QFontMetrics
 from watchdog.observers import Observer
-from folder_watcher import SvgFolderHandler
-from config import WINDOW_WIDTH, WINDOW_HEIGHT
+from .folder_watcher import SvgFolderHandler
+from .config import WINDOW_WIDTH, WINDOW_HEIGHT
 
 class SvgAnimator(QWidget):
     def __init__(self, svg_folder, fps=24):

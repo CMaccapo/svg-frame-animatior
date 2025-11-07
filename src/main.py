@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QFileDialog
-from animator import SvgAnimator
-from config import DEFAULT_FPS
+from .animator import SvgAnimator
+from .config import DEFAULT_FPS
 
 def select_folder():
     app = QApplication(sys.argv)
