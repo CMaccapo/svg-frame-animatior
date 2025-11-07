@@ -1,15 +1,15 @@
 import os
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QSlider, QLabel, QSizePolicy,
-    QSpacerItem
+    QPushButton, QSlider, QLabel, QFileDialog, QMessageBox
 )
 from PyQt5.QtSvg import QSvgWidget, QSvgRenderer
-from PyQt5.QtCore import QTimer, Qt
-from PyQt5.QtGui import QFontMetrics
+from PyQt5.QtCore import QTimer, Qt, QByteArray
+from PyQt5.QtGui import QImage, QPainter
 from watchdog.observers import Observer
+from PIL import Image  # <-- NEW (requires Pillow)
 from .folder_watcher import SvgFolderHandler
-from .config import WINDOW_WIDTH, WINDOW_HEIGHT
+
 
 class SvgAnimator(QWidget):
     def __init__(self, svg_folder, fps=24):
@@ -36,7 +36,6 @@ class SvgAnimator(QWidget):
         self.svg_container.addStretch(1)
         self.main_layout.addLayout(self.svg_container)
 
-
         # Control panel layout
         self.controls_layout = QHBoxLayout()
 
@@ -46,12 +45,12 @@ class SvgAnimator(QWidget):
         self.controls_layout.addWidget(self.start_stop_btn)
 
         # Step Back button
-        self.prev_btn = QPushButton("⏮")
+        self.prev_btn = QPushButton("<")
         self.prev_btn.clicked.connect(self.previous_frame)
         self.controls_layout.addWidget(self.prev_btn)
 
         # Step Forward button
-        self.next_btn = QPushButton("⏭")
+        self.next_btn = QPushButton(">")
         self.next_btn.clicked.connect(self.next_frame_manual)
         self.controls_layout.addWidget(self.next_btn)
 
@@ -64,6 +63,11 @@ class SvgAnimator(QWidget):
         self.fps_slider.setValue(self.fps)
         self.fps_slider.valueChanged.connect(self.update_fps)
         self.controls_layout.addWidget(self.fps_slider)
+
+        # --- NEW: Export as GIF button ---
+        self.export_btn = QPushButton("Export as GIF")
+        self.export_btn.clicked.connect(self.export_gif)
+        self.controls_layout.addWidget(self.export_btn)
 
         self.main_layout.addLayout(self.controls_layout)
 
@@ -92,12 +96,57 @@ class SvgAnimator(QWidget):
             if self.current_index >= len(self.svg_files):
                 self.current_index = 0
             if self.svg_files:
-                # Get first image size
                 first_renderer = QSvgRenderer(self.svg_files[0])
                 if first_renderer.isValid():
                     size = first_renderer.defaultSize()
                     self.svg_widget.setFixedSize(size)
                 self._update_svg()
+
+    # --- Export as GIF ---
+    def export_gif(self):
+        if not self.svg_files:
+            QMessageBox.warning(self, "No Frames", "No SVG frames to export.")
+            return
+
+        save_path, _ = QFileDialog.getSaveFileName(
+            self, "Save GIF", "", "GIF Files (*.gif)"
+        )
+        if not save_path:
+            return
+
+        images = []
+        delay = int(1000 / self.fps)  # duration per frame in ms
+
+        for svg_file in self.svg_files:
+            renderer = QSvgRenderer(svg_file)
+            size = renderer.defaultSize()
+            image = QImage(size, QImage.Format_ARGB32)
+            image.fill(Qt.transparent)
+
+            painter = QPainter(image)
+            renderer.render(painter)
+            painter.end()
+
+            # Convert QImage → PIL Image
+            buffer = image.bits().asstring(image.byteCount())
+            pil_image = Image.frombuffer(
+                "RGBA", (image.width(), image.height()), buffer, "raw", "BGRA", 0, 1
+            ).convert("RGBA")
+            images.append(pil_image)
+
+        try:
+            images[0].save(
+                save_path,
+                save_all=True,
+                append_images=images[1:],
+                duration=delay,
+                loop=0,
+                disposal=2,
+                transparency=0,
+            )
+            QMessageBox.information(self, "Export Complete", f"GIF saved to:\n{save_path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Export Failed", f"Error exporting GIF:\n{e}")
 
     # --- Frame advancing helpers ---
     def _advance_frame(self, step):
@@ -106,12 +155,10 @@ class SvgAnimator(QWidget):
         self.current_index = (self.current_index + step) % len(self.svg_files)
         self._update_svg()
 
-    # Timer-driven animation
     def next_frame_timer(self):
         if self.is_running:
             self._advance_frame(1)
 
-    # Manual stepping
     def next_frame_manual(self):
         self._advance_frame(1)
 
@@ -128,7 +175,7 @@ class SvgAnimator(QWidget):
         self.fps_label.setText(f"FPS: {self.fps}")
         self.timer.setInterval(int(1000 / self.fps))
 
-    # --- Update SVG  ---
+    # --- Update SVG ---
     def _update_svg(self):
         if not self.svg_files:
             self.svg_widget.load(b'')
@@ -137,16 +184,11 @@ class SvgAnimator(QWidget):
 
         current_file = os.path.basename(self.svg_files[self.current_index])
         self.svg_widget.load(self.svg_files[self.current_index])
-        self.setWindowTitle(f"SVG Animator - ({self.current_index + 1}/{len(self.svg_files)}) {current_file}")
+        self.setWindowTitle(
+            f"SVG Animator - ({self.current_index + 1}/{len(self.svg_files)}) {current_file}"
+        )
 
-
-
-    # --- Window close handling ---
     def closeEvent(self, event):
         self.observer.stop()
         self.observer.join()
         event.accept()
-
-    # --- Resize SVG ---
-    def resizeEvent(self, event):
-        super().resizeEvent(event)

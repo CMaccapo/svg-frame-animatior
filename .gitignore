@@ -1,2 +1,4 @@
 __pycache__/
 *.pyc
+*.txt
+print_dir_structure.py
