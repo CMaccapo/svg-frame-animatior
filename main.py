@@ -51,15 +51,18 @@ for svg_file in svg_files:
     frame = Image.frombytes("RGBA", (image.width(), image.height()), buffer)
     frames.append(frame)
 
-# --- Display animation ---
+# --- Display looping animation ---
 plt.ion()
 fig, ax = plt.subplots()
 
-for frame in frames:
-    ax.clear()
-    ax.imshow(frame)
-    ax.axis("off")
-    plt.pause(DELAY)
-
-plt.ioff()
-plt.show()
+try:
+    while True:  # Loop indefinitely
+        for frame in frames:
+            ax.clear()
+            ax.imshow(frame)
+            ax.axis("off")
+            plt.pause(DELAY)
+except KeyboardInterrupt:
+    print("Animation stopped.")
+    plt.ioff()
+    plt.close()
