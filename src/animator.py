@@ -1,9 +1,10 @@
 import os
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QSlider, QLabel, QSizePolicy
+    QPushButton, QSlider, QLabel, QSizePolicy,
+    QSpacerItem
 )
-from PyQt5.QtSvg import QSvgWidget
+from PyQt5.QtSvg import QSvgWidget, QSvgRenderer
 from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtGui import QFontMetrics
 from watchdog.observers import Observer
@@ -27,8 +28,13 @@ class SvgAnimator(QWidget):
 
         # SVG display widget
         self.svg_widget = QSvgWidget(self)
-        self.svg_widget.setMinimumSize(WINDOW_WIDTH, WINDOW_HEIGHT)
-        self.main_layout.addWidget(self.svg_widget)
+
+        # A layout to center the SVG in the window
+        self.svg_container = QHBoxLayout()
+        self.svg_container.addStretch(1)
+        self.svg_container.addWidget(self.svg_widget, alignment=Qt.AlignCenter)
+        self.svg_container.addStretch(1)
+        self.main_layout.addLayout(self.svg_container)
 
 
         # Control panel layout
@@ -86,6 +92,11 @@ class SvgAnimator(QWidget):
             if self.current_index >= len(self.svg_files):
                 self.current_index = 0
             if self.svg_files:
+                # Get first image size
+                first_renderer = QSvgRenderer(self.svg_files[0])
+                if first_renderer.isValid():
+                    size = first_renderer.defaultSize()
+                    self.svg_widget.setFixedSize(size)
                 self._update_svg()
 
     # --- Frame advancing helpers ---
@@ -120,17 +131,14 @@ class SvgAnimator(QWidget):
     # --- Update SVG  ---
     def _update_svg(self):
         if not self.svg_files:
-            # Instead of loading None, just clear the widget safely
-            self.svg_widget.load(b'')  # load empty content instead of None
+            self.svg_widget.load(b'')
             self.setWindowTitle("SVG Animator - No frames")
             return
 
         current_file = os.path.basename(self.svg_files[self.current_index])
         self.svg_widget.load(self.svg_files[self.current_index])
-
-
-        # Update window title
         self.setWindowTitle(f"SVG Animator - ({self.current_index + 1}/{len(self.svg_files)}) {current_file}")
+
 
 
     # --- Window close handling ---
@@ -141,10 +149,4 @@ class SvgAnimator(QWidget):
 
     # --- Resize SVG ---
     def resizeEvent(self, event):
-        # Resize SVG
-        self.svg_widget.resize(self.width(), self.height() - 50)
-
-        # Recalculate elided text based on new width
-        self._update_svg()
-
         super().resizeEvent(event)
